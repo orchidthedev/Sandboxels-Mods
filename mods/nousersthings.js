@@ -3370,7 +3370,7 @@ elements.smart_anti_void = {
             let y = pixel.y+adjacentCoords[i][0]
             if (!isEmpty(x, y, true)){
                 let otherPixel = pixelMap[x][y]
-                if (!isElementInProperty(otherPixel.element, pixel.filter)){deletePixel(otherPixel.x, otherPixel.y)}
+                if (!isElementInProperty(otherPixel.element, pixel.filter) && otherPixel.element != pixel.element){deletePixel(otherPixel.x, otherPixel.y)}
             }
         }
     },
@@ -3395,7 +3395,7 @@ elements.smart_anti_e_void = {
                 let y = pixel.y+adjacentCoords[i][0]
                 if (!isEmpty(x, y, true)){
                     let otherPixel = pixelMap[x][y]
-                    if (!isElementInProperty(otherPixel.element, pixel.filter)){deletePixel(otherPixel.x, otherPixel.y)}
+                    if (!isElementInProperty(otherPixel.element, pixel.filter) && otherPixel.element != pixel.element){deletePixel(otherPixel.x, otherPixel.y)}
                 }
             }
         }
