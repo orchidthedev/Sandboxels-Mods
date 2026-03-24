@@ -3544,8 +3544,8 @@ elements.aerogel = {
             if (!isEmpty(x, y, true)){
                 let otherPixel = pixelMap[x][y]
                 if ((otherPixel.element == "aerogel" || !elements[otherPixel.element].insulate) && Math.random() < 0.1){
-                    let thisTemp = weightedAverage(pixel.temp, otherPixel.temp, 0.005)
-                    let otherTemp = weightedAverage(otherPixel.temp, pixel.temp, 0.005)
+                    let thisTemp = weightedAverage(pixel.temp, otherPixel.temp, 0.995)
+                    let otherTemp = weightedAverage(otherPixel.temp, pixel.temp, 0.995)
                     pixel.temp = thisTemp;
                     otherPixel.temp = otherTemp;
                     pixelTempCheck(pixel);
@@ -3554,4 +3554,15 @@ elements.aerogel = {
             }
         }
     }
+}
+if (!elements.sand.reactions){element.sand.reactions = {}};
+elements.sand.reactions.acid = {elem1: "silica_gel", elem2: null}
+elements.silica_gel = {
+    color: "#FFFFFF",
+    alpha: 0.7,
+    category: "powders",
+    behavior: behaviors.POWDER,
+    tempHigh: elements.glass.tempHigh,
+    stateHigh: [null, null, null, "molten_glass"],
+    reactions: {"carbon_dioxide": {elem1: "aerogel", elem2: "aerogel", tempMin: -60}, ...elements.sponge.reactions}
 }
