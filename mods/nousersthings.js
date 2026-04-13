@@ -1,4 +1,12 @@
 // Bismuth is the best element
+/*
+X heat conducting wall
+X aerogel (?)
+X rename global heat conductor to heat portal, add channels
+X instant wire
+X heat pipe, smart variant
+X rename specific machines to smart machines
+*/
 async function _nousersthingsprompt(message, defaultValue = "") { // thanks to ggod for updated prompt function
     return new Promise(resolve => {
         promptInput(message, (result) => {
@@ -284,6 +292,7 @@ elements.technetium = {
 	state: "solid",
 	tempHigh: 2157,
 	stateHigh: "molten_technetium",
+    movable: false,
 	density: 11500,
 	conduct: 0.9
 },
@@ -1288,7 +1297,7 @@ elements.converter = {
                 var y = pixel.y+coord[1];
                 if (!isEmpty(x,y, true)) {
 					var otherPixel = pixelMap[x][y];
-					if ((otherPixel.element == pixel.specialturn || pixel.specialturn == "all") && !elements.converter.ignore.includes(otherPixel.element) && newPixel.element != pixel.contype){
+					if ((otherPixel.element == pixel.specialturn || pixel.specialturn == "all") && !elements.converter.ignore.includes(otherPixel.element) && otherPixel.element != pixel.contype){
 						changePixel(otherPixel, pixel.contype)
 					}
                 }
@@ -3315,5 +3324,257 @@ elements.delay = {
         } else {drawSquare(ctx, pixel.color, pixel.x, pixel.y)}
     }
 }
+function isElementInProperty(element, property){return (property === element || property.split(",").includes(element))}
 elements.wire.updateOrder = -681392
 elements.battery.updateOrder = 8199598
+elements.e_void = {
+    color: "#2a2715",
+    category: "machines",
+    movable: false,
+    behavior: behaviors.WALL,
+    ignore: ["wall", "wire", "e_wall"],
+    conduct: 1,
+    onShiftSelect: async () => {
+        let ans = await _nousersthingsprompt("What elements should this e-void delete?", "")
+        currentElementProp = {filter:ans}
+    },
+    tick: function(pixel){
+        if (pixel.charge){
+            for (let i = 0; i<adjacentCoords.length;i++){
+                let x = pixel.x+adjacentCoords[i][0]
+                let y = pixel.y+adjacentCoords[i][0]
+                if (!isEmpty(x, y, true)){
+                    let otherPixel = pixelMap[x][y]
+                    if (typeof pixel.filter != "undefined"){
+                        if(isElementInProperty(otherPixel.element, pixel.filter)){deletePixel(otherPixel.x, otherPixel.y)}
+                    } else if (!elements.e_void.ignore.includes(otherPixel.element)){deletePixel(otherPixel.x, otherPixel.y)}
+                }
+            }
+        }
+    },
+    name: "e-void"
+}
+elements.smart_anti_void = {
+    color: "#bdffed",
+    category: "special",
+    movable: false,
+    behavior: behaviors.WALL,
+    onSelect: async()=>{
+        let ans = await _nousersthingsprompt("What element should NOT be deleted by this anti void?", "")
+        currentElementProp = {filter:ans}
+    },
+    tick: function(pixel){
+        if (typeof pixel.filter == "undefined"){changePixel(pixel, "flash"); logMessage("A void without valid properties was attempted to be placed."); return;}
+        for (let i = 0; i<adjacentCoords.length;i++){
+            let x = pixel.x+adjacentCoords[i][0]
+            let y = pixel.y+adjacentCoords[i][0]
+            if (!isEmpty(x, y, true)){
+                let otherPixel = pixelMap[x][y]
+                if (!isElementInProperty(otherPixel.element, pixel.filter) && otherPixel.element != pixel.element){deletePixel(otherPixel.x, otherPixel.y)}
+            }
+        }
+    },
+    name: "smart anti-void",
+    grain: 0
+}
+elements.smart_anti_e_void = {
+    color: "#fffebd",
+    category: "machines",
+    movable: false,
+    behavior: behaviors.WALL,
+    conduct: 1,
+    onSelect: async()=>{
+        let ans = await _nousersthingsprompt("What element should NOT be deleted by this anti void?", "")
+        currentElementProp = {filter:ans}
+    },
+    tick: function(pixel){
+        if (typeof pixel.filter == "undefined"){changePixel(pixel, "flash"); logMessage("An anti-e-void without valid properties was attempted to be placed."); return;}
+        if (pixel.charge){
+            for (let i = 0; i<adjacentCoords.length;i++){
+                let x = pixel.x+adjacentCoords[i][0]
+                let y = pixel.y+adjacentCoords[i][0]
+                if (!isEmpty(x, y, true)){
+                    let otherPixel = pixelMap[x][y]
+                    if (!isElementInProperty(otherPixel.element, pixel.filter) && otherPixel.element != pixel.element){deletePixel(otherPixel.x, otherPixel.y)}
+                }
+            }
+        }
+    },
+    name: "smart anti-e-void",
+    grain: 0
+}
+elements.anti_filter = {
+    color: ["#77a5c5","#9bbcd4"],
+	colorKey: {
+		"L":"#77a5c5",
+		"D":"#9bbcd4"
+	},
+	colorPattern: [
+		"DL",
+		"LD"
+	],
+	onShiftSelect: function(element) {
+		promptInput("Enter an element to disallow. Be careful, it will absorb solids you don't exclude. Enter multiple separated by commas.", function(r) {
+			r = validateElementList(r);
+			if (!r) return;
+			currentElementProp = { filter:r }
+		}, elemTitleCase(elements[element].name || element));
+	},
+	onClicked: function(pixel,element) {
+		if (pixel.filter) return;
+		if (elements[element].tool && elements[element].canPlace !== true) return;
+		if (elements[element].canPlace === false) return;
+		if (elements[element].movable) pixel.filter = element;
+	},
+	onMix: function(pixel) {
+		if (!pixel.con) return;
+		pixel.con.x = pixel.x;
+		pixel.con.y = pixel.y;
+	},
+	tick: function(pixel) {
+		doDefaults(pixel);
+		if (!pixel.con) { //collect pixel
+			if (Math.random() > 0.2) return;
+			for (var i = 0; i < squareCoords.length; i++) {
+				var coord = squareCoords[i];
+				var x = pixel.x+coord[0];
+				var y = pixel.y+coord[1];
+				let newPixel = getPixel(x, y);
+				if (!newPixel) continue;
+				if (newPixel.element === "filter") {
+					if (!newPixel.filter && pixel.filter) newPixel.filter = pixel.filter;
+					if (!pixel.filter && newPixel.filter) pixel.filter = newPixel.filter;
+				}
+				//if (!elements[newPixel.element].movable) continue;
+				if (!pixel.filter && elements[newPixel.element].movable) {
+					pixel.filter = newPixel.element;
+				} else if(!pixel.filter){continue;}
+				if ((
+					pixel.filter !== newPixel.element ||
+					(pixel.filter !== elements[newPixel.element].state && elements[newPixel.element].movable)||
+					(pixel.filter.match(/,/) && !pixel.filter.split(",").includes(newPixel.element))
+				) && newPixel.element != "anti_filter") {
+					pixel.con = newPixel;
+					deletePixel(newPixel.x,newPixel.y);
+					pixel.con.x = pixel.x;
+					pixel.con.y = pixel.y;
+					pixel.con.del;
+					pixel.filterTick = pixelTicks;
+					break;
+				}
+			}
+			return;
+		}
+
+		pixel.con.x = pixel.x;
+		pixel.con.y = pixel.y;
+
+		//move pixel
+		let targets;
+		let element = pixel.con.element;
+		//if (elements[element].isGas) { //random direction
+			shuffleArray(squareCoordsShuffle);
+			targets = squareCoordsShuffle;
+		//}
+		//else { //downward, and then randomly diagonally
+		//	if (Math.random() < 0.5) return;
+		//	targets = [[0,1], ...(Math.random() < 0.5 ? [[1,1],[-1,1]] : [[-1,1],[1,1]])];
+		//}
+
+		for (var i = 0; i < targets.length; i++) {
+			var coord = targets[i];
+			var x = pixel.x+coord[0];
+			var y = pixel.y+coord[1];
+			if (isEmpty(x,y)) { //release pixel
+				delete pixel.con.del;
+				pixel.con.x = x;
+				pixel.con.y = y;
+				pixelMap[x][y] = pixel.con;
+				currentPixels.push(pixel.con);
+				pixel.con = null;
+				break;
+			}
+			let newPixel = getPixel(x, y);
+			if (!newPixel) continue;
+			if (elements[newPixel.element].canContain && !newPixel.con && newPixel.filterTick !== pixelTicks) {
+				if (newPixel.filter && newPixel.filter !== pixel.filter) {
+					if (newPixel.filter !== pixel.con.element && !newPixel.filter.split(",").includes(pixel.con.element)) continue
+				}
+				newPixel.con = pixel.con;
+				newPixel.con.x = newPixel.x;
+				newPixel.con.y = newPixel.y;
+				// newPixel.con.del = true; //???
+				newPixel.filterTick = pixelTicks;
+				// delete newPixel.con.del;
+				pixel.con = null;
+				break;
+			}
+		}
+	},
+	hoverStat: function(pixel) { return pixel.filter ? pixel.filter.toUpperCase() : "NONE" },
+	category: "machines",
+	movable: false,
+	canContain: true,
+	forceSaveColor: true,
+	hardness: 0.75
+}
+elements.heat_conducting_wall = {
+    category: "special",
+    color: "#8c6262",
+    behavior: behaviors.WALL,
+    hardness: 1
+}
+elements.acid.ignore.push("heat_conducting_wall");
+elements.acid_gas.ignore.push("heat_conducting_wall");
+elements.aerogel = {
+    color: "#84cbe5",
+    alpha: 0.7,
+    hardness: 0.04,
+    behavior: behaviors.WALL,
+    category: "solids",
+    density: 20,
+    tempHigh: 1710,
+    stateHigh: ["molten_glass", "carbon_dioxide", "carbon_dioxide", "carbon_dioxide"],
+    insulate: true,
+    tick: function(pixel){
+        for (let i=0;i<adjacentCoords.length;i++){
+            let coord = adjacentCoords[i];
+			let x = pixel.x+coord[0];
+			let y = pixel.y+coord[1];
+            if (!isEmpty(x, y, true)){
+                let otherPixel = pixelMap[x][y]
+                if ((otherPixel.element == "aerogel" || !elements[otherPixel.element].insulate) && Math.random() < 0.01){
+                    let thisTemp = weightedAverage(pixel.temp, otherPixel.temp, 0.99)
+                    let otherTemp = weightedAverage(otherPixel.temp, pixel.temp, 0.99)
+                    pixel.temp = thisTemp;
+                    otherPixel.temp = otherTemp;
+                    pixelTempCheck(pixel);
+                    pixelTempCheck(otherPixel);
+                }
+            }
+        }
+    },
+    movable: false
+}
+if (!elements.sand.reactions){element.sand.reactions = {}};
+elements.sand.reactions.acid = {elem1: "silica_gel", elem2: null}
+elements.silica_gel = {
+    color: "#FFFFFF",
+    alpha: 0.7,
+    category: "powders",
+    behavior: behaviors.POWDER,
+    tempHigh: elements.glass.tempHigh,
+    stateHigh: [null, null, null, "molten_glass"],
+    reactions:{
+        carbon_dioxide: {elem1: "aerogel", elem2: "aerogel", tempMax: -60},
+        water: {elem2: null},
+        salt_water: {elem2: [null, "salt"]},
+        sugar_water: {elem2: [null, "sugar"]},
+        pool_water: {elem2: [null, "chlorine"]},
+        mud: {elem2: "dirt"},
+        wet_sand: {elem2: "sand"},
+        soda: {elem2: [null, "sugar", "carbon_dioxide"]},
+        seltzer: {elem2: [null, "carbon_dioxide"]},
+        clay: {elem2: "clay_soil"}
+    }
+}
